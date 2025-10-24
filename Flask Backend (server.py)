@@ -1,0 +1,70 @@
+from flask import Flask, render_template, request, jsonify
+import cv2, numpy as np, os, datetime, json
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array, load_img
+
+app = Flask(__name__)
+UPLOAD_FOLDER = "images"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# Load trained model
+model = load_model("crop_disease_model.h5")
+class_labels = ['Blight', 'Rust', 'Healthy']  # Update according to dataset
+
+# Dashboard
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Sensor data API
+@app.route('/data', methods=['POST'])
+def receive_data():
+    data = request.get_json()
+    with open("sensor_log.json", "a") as f:
+        json.dump(data, f)
+        f.write("\n")
+    print("Sensor Data:", data)
+    return jsonify({"message": "Data stored"}), 200
+
+# Image upload & preprocessing
+@app.route('/upload', methods=['POST'])
+def upload_image():
+    image_bytes = request.data
+    filename = datetime.datetime.now().strftime("%Y%m%d_%H%M%S") + ".jpg"
+    filepath = os.path.join(UPLOAD_FOLDER, filename)
+    
+    with open(filepath, 'wb') as f:
+        f.write(image_bytes)
+    
+    # Preprocess for OpenCV
+    img = cv2.imread(filepath)
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur = cv2.GaussianBlur(gray, (5,5), 0)
+    edges = cv2.Canny(blur, 100, 200)
+    cv2.imwrite(filepath.replace(".jpg","_processed.jpg"), edges)
+    
+    print(f"Image received and processed: {filename}")
+    return jsonify({"message": "Image received and processed"}), 200
+
+# Disease prediction API
+@app.route('/predict', methods=['POST'])
+def predict_disease():
+    image_bytes = request.data
+    filename = "temp.jpg"
+    with open(filename, 'wb') as f:
+        f.write(image_bytes)
+    
+    img = load_img(filename, target_size=(128,128))
+    img_array = img_to_array(img)/255.0
+    img_array = np.expand_dims(img_array, axis=0)
+    
+    prediction = model.predict(img_array)
+    predicted_class = class_labels[np.argmax(prediction)]
+    confidence = float(np.max(prediction))
+    
+    return jsonify({"disease": predicted_class, "confidence": confidence})
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+
+

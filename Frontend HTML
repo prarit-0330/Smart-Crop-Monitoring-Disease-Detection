@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<title>Smart Crop Monitoring</title>
+</head>
+<body>
+<h1>Smart Crop Monitoring Dashboard</h1>
+
+<div class="sensor-data">
+    <h2>Sensor Data</h2>
+    <pre id="sensor-log">Loading...</pre>
+</div>
+
+<div class="image-feed">
+    <h2>Latest Crop Image</h2>
+    <img id="latest-image" src="" alt="Latest Image" width="400">
+</div>
+
+<div class="disease-result">
+    <h2>Disease Prediction</h2>
+    <p id="disease">Waiting for prediction...</p>
+</div>
+
+<script>
+async function fetchSensorData(){
+    const response = await fetch('/sensor_log.json');
+    const text = await response.text();
+    document.getElementById('sensor-log').innerText = text;
+}
+
+setInterval(fetchSensorData, 5000);
+</script>
+
+</body>
+</html>
+
